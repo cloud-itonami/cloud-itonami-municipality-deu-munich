@@ -1,0 +1,31 @@
+(ns ordinance.facts-test
+  (:require [clojure.edn :as edn]
+            [clojure.string :as str]
+            [clojure.test :refer [deftest is]]
+            [ordinance.facts :as facts]))
+
+(deftest munich-has-spec-basis
+  (let [sb (facts/spec-basis "munich")]
+    (is (= 2 (count sb)))
+    (is (every? #(str/starts-with? (:ordinance/url %) "https://stadt.muenchen.de/rathaus/stadtrecht/") sb))))
+
+(deftest unknown-municipality-has-no-spec-basis
+  (is (nil? (facts/spec-basis "nuremberg")))
+  (is (nil? (facts/spec-basis "zzz"))))
+
+(deftest coverage-is-honest
+  (let [c (facts/coverage ["munich" "nuremberg"])]
+    (is (= 2 (:requested c)))
+    (is (= 1 (:covered c)))
+    (is (= ["nuremberg"] (:missing-municipalities c)))))
+
+(deftest by-topic-filters
+  (is (= ["munich.gruenanlagensatzung-2012"]
+         (mapv :ordinance/id (facts/by-topic "munich" :parks))))
+  (is (empty? (facts/by-topic "munich" :labor)))
+  (is (empty? (facts/by-topic "nuremberg" :transparency))))
+
+(deftest tx-file-matches-catalog
+  (let [tx (edn/read-string (slurp "data/datascript-tx.edn"))
+        flat (mapcat val (sort-by key facts/catalog))]
+    (is (= (vec flat) (vec tx)))))
